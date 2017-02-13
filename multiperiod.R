@@ -6,7 +6,7 @@ library("tictoc")
 library("ConSpline")
 
 a <- 1 # cost of effort 
-
+mu <- 0.2 # probability of success given lowe effort
 pi <- 5 # output to principal
 
 delta_A <- 0.8; delta_P <- 0.8 # discount rates
