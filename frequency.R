@@ -1,18 +1,33 @@
 
+library("ggplot2")
+library("reshape2")
+
+transition_plot <- function(lambda,t,W)
+{
+  l<- length(W)
+  ### 45 degree line plot ####
+  par(mfrow=c(1,1))
+  
+  
+  colours <- c("#999999", "#E69F00", "#56B4E9")
+  
+  sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
+  
+  df <- as.data.frame(cbind(W,sol$Policy[,4:6]))
+  df <- melt(df ,  id.vars = 'W', variable.name = 'series')
+  plot<- ggplot(df,aes(W, series))+geom_line(aes(colour=series))
+  
+  }
+  plot
+}
+
+###
+
 
 w_prime_s0 <- Schumaker(W,sol_t2_lambda0.9$Policy[,4])$Spline
 w_prime_s1 <- Schumaker(W,sol_t2_lambda0.9$Policy[,5])$Spline
 w_prime_s2 <- Schumaker(W,sol_t2_lambda0.9$Policy[,6])$Spline
 
-### 45 degree line plot ####
-par(mfrow=c(1,1))
-plot(W[-(13:15)],W[-(13:15)],type="l")
-lines(W[-(13:15)],sol_t1_lambda0.7$Policy[-(13:15),3])
-lines(W[-(13:15)],sol_t1_lambda0.7$Policy[-(13:15),4])
-lines(W,sol_t2_lambda0.5$Policy[,6])
-
-
-###
 
 sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
 

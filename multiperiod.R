@@ -141,16 +141,16 @@ value_new_alabama_multi <- function(fun=function(x)(x^2),iter=10, space=W,t=1,..
 
 for(lambda in c(0.5,0.7)){
   
-  W <- seq(0,wmax,length.out=30)
+  W <- seq(0,wmax,length.out=20)
   par(mfrow=c(1,2))
   
   for(t in 1:2){
-    if(exists(paste("sol_t",t,"_lamda",lambda,sep=""))) f<- eval(as.name(paste("sol_t",t,"_lamda",lambda,sep="")))$f
+    if(exists(paste("sol_t",t,"_lambda",lambda,sep=""))) f<- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))$f
     else f <- function(x)(exp(x))
     
     
-    sol <- value_new_alabama_multi(fun=f,iter=10,t=t,maxeval=5000)
-    assign(paste("sol_t",t,"_lamda",lambda,sep = ""),c(sol,list(parameters=list(a=a,delta_A=delta_A,delta_P=delta_P,lambda=lambda,mu=mu,W=W))))
+    sol <- value_new_alabama_multi(fun=f,iter=8,t=t,maxeval=5000)
+    assign(paste("sol_t",t,"_lambda",lambda,sep = ""),c(sol,list(parameters=list(a=a,delta_A=delta_A,delta_P=delta_P,lambda=lambda,mu=mu,W=W))))
     plot(W,sol$values)
     title(main = paste("lambda=",lambda,"t=",t))
   }
