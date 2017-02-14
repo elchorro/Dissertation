@@ -9,7 +9,7 @@ a <- 1 # cost of effort
 mu <- 0.2 # probability of success given lowe effort
 pi <- 5 # output to principal
 
-delta_A <- 0.8; delta_P <- 0.8 # discount rates
+delta_A <- 0.5; delta_P <- 0.5 # discount rates
 
 y <- function(e){ ifelse(e==1,pi,0) }
 
@@ -44,7 +44,7 @@ prob_s_tau <- function(t,lambda=lambda,mu=mu){
 # utilities under signals 1 and 2 respectively.
 
 
-Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA,maxeval=5000,parameters=NULL){
+Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA,iter=5000,parameters=NULL){
   
 
   if(is.list(parameters)) for (i in 1:length(parameters)) assign(names(parameters)[i],parameters[[i]])  
@@ -93,7 +93,7 @@ Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA
 #                                         fn= objective, 
 #                                         hin = hin,
 #                                         heq = heq,
-#                                         control.outer = list(itmax=maxeval,trace=F)
+#                                         control.outer = list(itmax=iter,trace=F)
 #  )
  
   effort_high <- nloptr::auglag( x0=initial, 
@@ -101,19 +101,22 @@ Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA
                   hin = hin,
                   heq = heq,
                   nl.info = FALSE,
-                  control=list(xtol_rel = 1e-8, maxeval = maxeval)) 
+                  control=list(xtol_rel = 1e-8, maxeval = iter)) 
   
-  try(if(min(hin(effort_high$par))< -0.0001) 
-    warning(paste("ICC doesn't hold:",min(hin(effort_high$par)),", w=",w)))
-  
+  try(if(any(head(hin(effort_high$par),4*(t+1))) < -0.0001) 
+    warning(paste("Utility bound is binding:",min(hin(effort_high$par)),",at w=",w)))
+ 
+  try(if(any(tail(hin(effort_high$par),t+1)) < -0.0001) 
+    warning(paste("ICC is binding:",min(hin(effort_high$par)),",at w=",w)))
+   
   try(if(abs(heq(effort_high$par))>0.0001) 
-    warning(paste("Promise-keeping doesn't hold:",abs(heq(effort_high$par)), ", w=",w)))
+    warning(paste("Promise-keeping doesn't hold:",abs(heq(effort_high$par)), ",at  w=",w)))
   effort_high
 }
 
 #### Iterating value function
 
-value_new_alabama_multi <- function(fun=function(x)(x^2),iter=10, space=W,t=1,...){
+value_new_alabama_multi <- function(fun=function(x)(x^2),iter=10, space=W,t=1,maxeval=5000,...){
   Policy <- matrix(ncol=2*(t+1),nrow=length(space))
   
   for(k in 1:iter){
@@ -121,7 +124,9 @@ value_new_alabama_multi <- function(fun=function(x)(x^2),iter=10, space=W,t=1,..
     values <- rep(NA,length(W))
     
     for(i in 1:length(space)){
-      optimal <- Bellman_P_alabama_multi(W[i],fun,t,...)
+      if(i==1) {
+        optimal <- Bellman_P_alabama_multi(W[i],fun,t,iter=min(maxeval,10000),...)
+      } else {optimal <- Bellman_P_alabama_multi(W[i],fun,t,iter=maxeval,...) }
       values[i] <- optimal$value
       Policy[i,] <- optimal$par
     }
@@ -139,9 +144,11 @@ value_new_alabama_multi <- function(fun=function(x)(x^2),iter=10, space=W,t=1,..
 ####################          Analysis            #################################
 ###################################################################################
 
+transitionplots <- list()
+
 for(lambda in c(0.5,0.7)){
   
-  W <- seq(0,wmax,length.out=20)
+  W <- seq(0,wmax,length.out=25)
   par(mfrow=c(1,2))
   
   for(t in 1:2){
@@ -149,10 +156,16 @@ for(lambda in c(0.5,0.7)){
     else f <- function(x)(exp(x))
     
     
-    sol <- value_new_alabama_multi(fun=f,iter=8,t=t,maxeval=5000)
+    sol <- value_new_alabama_multi(fun=f,iter=10,t=t,maxeval=5000)
     assign(paste("sol_t",t,"_lambda",lambda,sep = ""),c(sol,list(parameters=list(a=a,delta_A=delta_A,delta_P=delta_P,lambda=lambda,mu=mu,W=W))))
     plot(W,sol$values)
     title(main = paste("lambda=",lambda,"t=",t))
+    
+    transitionplots<- list(transitionplots, list(lambda=lambda,t=t,plot<- transition_plot(lambda,t,W,7)))
+
   }
   
+  
 }
+
+

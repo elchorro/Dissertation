@@ -2,48 +2,53 @@
 library("ggplot2")
 library("reshape2")
 
-transition_plot <- function(lambda,t,W)
-{
-  l<- length(W)
+transition_plot <- function(lambda,t,W.=W,max_w=Inf) {
+  
+  W. <- W.[which(W<max_w)]
+  
   ### 45 degree line plot ####
-  par(mfrow=c(1,1))
-  
-  
-  colours <- c("#999999", "#E69F00", "#56B4E9")
   
   sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
   
-  df <- as.data.frame(cbind(W,sol$Policy[,4:6]))
-  df <- melt(df ,  id.vars = 'W', variable.name = 'series')
-  plot<- ggplot(df,aes(W, series))+geom_line(aes(colour=series))
+  df <- as.data.frame(cbind(W.,W.,sol$Policy[,(t+2):(2*t + 2)]))
   
-  }
+  if(t==1) {colnames(df)<- c("W","45 degree","bad","good")
+  } else {colnames(df) <- c("W","45 degree","bad","medium","good")}
+  
+  df <- melt(df ,  id.vars = 'W', variable.name = 'series')
+  
+  plot<- ggplot(df,aes(W, value))+geom_line(aes(colour=series))+ggtitle("Transition functions")
+  
   plot
 }
 
 ###
 
+simulation <- function(lambda,t,W,iter=1000,no.seeds=10){
 
-w_prime_s0 <- Schumaker(W,sol_t2_lambda0.9$Policy[,4])$Spline
-w_prime_s1 <- Schumaker(W,sol_t2_lambda0.9$Policy[,5])$Spline
-w_prime_s2 <- Schumaker(W,sol_t2_lambda0.9$Policy[,6])$Spline
+  sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
+  sol$Policy<-round(sol$Policy,3)
+  if(t==1) { 
+  w_prime_s0 <- approxfun(W,sol$Policy[,3])
+  w_prime_s1 <- approxfun(W,sol$Policy[,4])
+  } else{
+    w_prime_s0 <- approxfun(W,sol$Policy[,4])
+    w_prime_s1 <- approxfun(W,sol$Policy[,5])
+    w_prime_s2 <- approxfun(W,sol$Policy[,6])
+  } 
+  w_prime <- list(s0 = w_prime_s0,
+                s1 = w_prime_s1,
+                s2 = (ifelse(t>1,w_prime_s2,NA)))
 
-
-sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
-
-w_prime <- list(s0 = Schumaker(W,sol$Policy[,t+1])$Spline,
-                s1 = Schumaker(W,sol$Policy[,t+2])$Spline,
-                s2 = (ifelse(t>1,Schumaker(W,sol$Policy[,t+3])$Spline,NA)))
-
-no_periods <- 1000
-
-x <-  rep(NA,no_periods)
-x[1] <- wmin
-for(i in 2:length(x)){
-    outcome <- sum(as.integer(runif(t)<lambda))
-    x[i] <- w_prime[[outcome+1]](x[i-1])
+  x <-  matrix(rep(0,iter*no.seeds),ncol=no.seeds);
+  x[1,] <- runif(no.seeds,min=0,max=U(pi))
+    for(i in 2:nrow(x)){
+      outcome <- sum(as.integer(runif(t)<lambda))
+      x[i,] <- w_prime[[outcome+1]](x[i-1,])
+    }
+  x
 }
-
+  
 #dens <- logspline(x)
 dens <- density(x)
 plot(dens)
