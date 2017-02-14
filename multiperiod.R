@@ -5,22 +5,6 @@ library("alabama")
 library("tictoc")
 library("ConSpline")
 
-a <- 1 # cost of effort 
-mu <- 0.2 # probability of success given lowe effort
-pi <- 5 # output to principal
-
-delta_A <- 0.5; delta_P <- 0.5 # discount rates
-
-y <- function(e){ ifelse(e==1,pi,0) }
-
-U <- function(c) c^(1/2)
-cost <- function(u) u^2 #cost of providing giben utility, i.e. inverse of U 
-
-bmax <- 100*pi
-wmax <- U(30*pi)
-
-
-
 ## state space
 
 ## probability that signal i occurrs given tau deviations is p[i+1,tau+1], since "0" index not available
@@ -44,14 +28,14 @@ prob_s_tau <- function(t,lambda=lambda,mu=mu){
 # utilities under signals 1 and 2 respectively.
 
 
-Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA,iter=5000,parameters=NULL){
+Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA,iter=5000,parameters=NULL,wmax.=wmax,hmax=U(bmax)){
   
 
   if(is.list(parameters)) for (i in 1:length(parameters)) assign(names(parameters)[i],parameters[[i]])  
   
   if(is.na(initial)) {
-    initial[1:(t+1)] <- ((1:(t+1))^4)*(U(bmax)-0.0001)/((t+1)^4) 
-    initial[(t+2):(2*(t+1))] <- ((1:(t+1))^4)*(wmax-0.00001)/((t+1)^4)
+    initial[1:(t+1)] <- ((1:(t+1))^4)*(hmax-0.0001)/((t+1)^4) 
+    initial[(t+2):(2*(t+1))] <- ((1:(t+1))^4)*(wmax.-0.00001)/((t+1)^4)
   }
   p <- prob_s_tau(t,lambda,mu)
 
@@ -84,7 +68,7 @@ Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA
     w_prime <- x[(t+2):(2*t+2)]
 
     hin <- rep(NA,5*t+4)
-    hin[1:(4*t+4)] <- c(h+max_penal, U(bmax)-h, w_prime, wmax-w_prime)
+    hin[1:(4*t+4)] <- c(h+max_penal, hmax-h, w_prime, wmax.-w_prime)
     for(tau in 1:t) hin[(4*t+4)+tau] <- (EV(h,w_prime,0)-EV(h,w_prime,tau)) ## ICC's for each length on deviation ##
     hin
   }
@@ -103,10 +87,11 @@ Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA
                   nl.info = FALSE,
                   control=list(xtol_rel = 1e-8, maxeval = iter)) 
   
-  try(if(any(head(hin(effort_high$par),4*(t+1))) < -0.0001) 
+
+  try(if(min(head(hin(effort_high$par),4*(t+1))) < -0.0001) 
     warning(paste("Utility bound is binding:",min(hin(effort_high$par)),",at w=",w)))
  
-  try(if(any(tail(hin(effort_high$par),t+1)) < -0.0001) 
+  try(if(min(tail(hin(effort_high$par),t+1)) < -0.0001) 
     warning(paste("ICC is binding:",min(hin(effort_high$par)),",at w=",w)))
    
   try(if(abs(heq(effort_high$par))>0.0001) 
@@ -139,33 +124,4 @@ value_new_alabama_multi <- function(fun=function(x)(x^2),iter=10, space=W,t=1,ma
   
   return(list("f"=fun,"values"=values,"Policy"=Policy))
 }
-
-###################################################################################
-####################          Analysis            #################################
-###################################################################################
-
-transitionplots <- list()
-
-for(lambda in c(0.5,0.7)){
-  
-  W <- seq(0,wmax,length.out=25)
-  par(mfrow=c(1,2))
-  
-  for(t in 1:2){
-    if(exists(paste("sol_t",t,"_lambda",lambda,sep=""))) f<- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))$f
-    else f <- function(x)(exp(x))
-    
-    
-    sol <- value_new_alabama_multi(fun=f,iter=10,t=t,maxeval=5000)
-    assign(paste("sol_t",t,"_lambda",lambda,sep = ""),c(sol,list(parameters=list(a=a,delta_A=delta_A,delta_P=delta_P,lambda=lambda,mu=mu,W=W))))
-    plot(W,sol$values)
-    title(main = paste("lambda=",lambda,"t=",t))
-    
-    transitionplots<- list(transitionplots, list(lambda=lambda,t=t,plot<- transition_plot(lambda,t,W,7)))
-
-  }
-  
-  
-}
-
 

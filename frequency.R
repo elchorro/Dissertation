@@ -10,14 +10,17 @@ transition_plot <- function(lambda,t,W.=W,max_w=Inf) {
   
   sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
   
-  df <- as.data.frame(cbind(W.,W.,sol$Policy[,(t+2):(2*t + 2)]))
+  Policy <- sol$Policy[which(W<max_w),(t+2):(2*t + 2)]
+  
+  df <- as.data.frame(cbind(W.,W.,Policy))
   
   if(t==1) {colnames(df)<- c("W","45 degree","bad","good")
   } else {colnames(df) <- c("W","45 degree","bad","medium","good")}
   
   df <- melt(df ,  id.vars = 'W', variable.name = 'series')
   
-  plot<- ggplot(df,aes(W, value))+geom_line(aes(colour=series))+ggtitle("Transition functions")
+  plot.subtitle <- paste("Lambda= ",lambda,"; t= ",t,".",sep="")
+  plot<- ggplot(df,aes(W, value))+geom_line(aes(colour=series))+ggtitle(bquote(atop(.("Transition functions"), atop(italic(.(plot.subtitle)), ""))))
   
   plot
 }
@@ -50,8 +53,8 @@ simulation <- function(lambda,t,W,iter=1000,no.seeds=10){
 }
   
 #dens <- logspline(x)
-dens <- density(x)
-plot(dens)
-hist(x)
-densit<- approxfun(dens$x,dens$y)
-integrate(function(x)(densit(x)*sol$f(x)),min(dens$x),max(dens$x))
+#dens <- density(x)
+#plot(dens)
+#hist(x)
+#densit<- approxfun(dens$x,dens$y)
+#integrate(function(x)(densit(x)*sol$f(x)),min(dens$x),max(dens$x))

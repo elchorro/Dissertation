@@ -1,4 +1,4 @@
-smallest_penalty <- function(w,lambda,mu,t,maxeval=5000,...){
+warsmallest_penalty <- function(w,lambda,mu,t,maxeval=5000,...){
   p <- prob_s_tau(t,lambda,mu)
   smallest_penalty_obj<- function(x){-min(x)}
 #  browser()
