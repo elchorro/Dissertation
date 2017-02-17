@@ -1,9 +1,6 @@
 
-library("ggplot2")
-library("reshape2")
 
 transition_plot <- function(lambda,t,W.=W,max_w=Inf) {
-  
   W. <- W.[which(W<max_w)]
   
   ### 45 degree line plot ####
@@ -17,20 +14,78 @@ transition_plot <- function(lambda,t,W.=W,max_w=Inf) {
   if(t==1) {colnames(df)<- c("W","45 degree","bad","good")
   } else {colnames(df) <- c("W","45 degree","bad","medium","good")}
   
-  df <- melt(df ,  id.vars = 'W', variable.name = 'series')
+  df <- melt(df ,  id.vars = 'W', variable.name = 'Signal')
   
   plot.subtitle <- paste("Lambda= ",lambda,"; t= ",t,".",sep="")
-  plot<- ggplot(df,aes(W, value))+geom_line(aes(colour=series))+ggtitle(bquote(atop(.("Transition functions"), atop(italic(.(plot.subtitle)), ""))))
+  plot<- ggplot(df,aes(W, value))+geom_line(aes(colour=Signal))+ggtitle(bquote(atop(.("Transition functions"), atop(italic(.(plot.subtitle)), ""))))
+  
+  plot
+}
+consumption_plot <- function(lambda,t,W.=W,max_w=Inf) {
+  W. <- W.[which(W<max_w)]
+  
+  ### 45 degree line plot ####
+  
+  sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
+  
+  consumption <- cost(sol$Policy[which(W<max_w),1:(t + 1)])
+  df <- as.data.frame(cbind(W.,consumption))
+  
+  if(t==1) {colnames(df)<- c("W","bad","good")
+  } else {colnames(df) <- c("W","bad","medium","good")}
+  
+  df <- melt(df ,  id.vars = 'W', variable.name = 'Signal')
+  
+  plot.subtitle <- paste("Lambda= ",lambda,"; t= ",t,".",sep="")
+  plot<- ggplot(df,aes(W, value))+geom_line(aes(colour=Signal))+ggtitle(bquote(atop(.("Consumption functions"), atop(italic(.(plot.subtitle)), ""))))
+  
+  plot
+}
+utility_plot <- function(lambda,t,W.=W,max_w=Inf) {
+  W. <- W.[which(W<max_w)]
+  
+  ### 45 degree line plot ####
+  
+  sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
+  
+  consumption <- sol$Policy[which(W<max_w),1:(t + 1)]-a
+  df <- as.data.frame(cbind(W.,consumption))
+  
+  if(t==1) {colnames(df)<- c("W","bad","good")
+  } else {colnames(df) <- c("W","bad","medium","good")}
+  
+  df <- melt(df ,  id.vars = 'W', variable.name = 'Signal')
+  
+  plot.subtitle <- paste("Lambda= ",lambda,"; t= ",t,";a =",a,sep="")
+  plot<- ggplot(df,aes(W, value))+geom_line(aes(colour=Signal))+ggtitle(bquote(atop(.("Utility provided (net effort cost)"), atop(italic(.(plot.subtitle)), ""))))
+  
+  plot
+}
+costf_plot <- function(lambda,t,W.=W,max_w=Inf) {
+  W. <- W.[which(W<max_w)]
+  
+  ### 45 degree line plot ####
+  
+  sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
+  
+  values <- sol$values[which(W<max_w)]
+  
+  df <- as.data.frame(cbind(W.,values))
+  
+  colnames(df)<- c("W","Expected_cost ")
+  
+  df <- melt(df ,  id.vars = 'W', variable.name = '')
+  
+  plot.subtitle <- paste("Lambda= ",lambda,"; t= ",t,".",sep="")
+  plot<- ggplot(df,aes(W, value))+geom_line(aes(y=value))+ggtitle(bquote(atop(.("Expected cost"), atop(italic(.(plot.subtitle)), ""))))
   
   plot
 }
 
-###
-
 simulation <- function(lambda,t,W,iter=1000,no.seeds=10){
 
   sol <- eval(as.name(paste("sol_t",t,"_lambda",lambda,sep="")))
-  sol$Policy<-round(sol$Policy,3)
+  
   if(t==1) { 
   w_prime_s0 <- approxfun(W,sol$Policy[,3])
   w_prime_s1 <- approxfun(W,sol$Policy[,4])

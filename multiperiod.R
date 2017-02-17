@@ -3,7 +3,9 @@ library("spsi")
 library("schumaker")
 library("alabama")
 library("tictoc")
-library("ConSpline")  ###vv
+
+library("ggplot2")
+library("reshape2")
 
 ## state space
 
@@ -28,8 +30,7 @@ prob_s_tau <- function(t,lambda=lambda,mu=mu){
 # utilities under signals 1 and 2 respectively.
 
 
-Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA,iter=5000,parameters=NULL,wmax.=wmax,hmax=U(bmax)){
-  
+Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA,iter=5000,parameters=NULL,wmax.=wmax,hmax=U(bmax),localsolver.=NULL,...){
 
   if(is.list(parameters)) for (i in 1:length(parameters)) assign(names(parameters)[i],parameters[[i]])  
   
@@ -66,10 +67,16 @@ Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA
   {
     h <- x[1:(t+1)]
     w_prime <- x[(t+2):(2*t+2)]
-
-    hin <- rep(NA,5*t+4)
-    hin[1:(4*t+4)] <- c(h+max_penal, hmax-h, w_prime, wmax.-w_prime)
-    for(tau in 1:t) hin[(4*t+4)+tau] <- (EV(h,w_prime,0)-EV(h,w_prime,tau)) ## ICC's for each length on deviation ##
+#    hin <- rep(NA,5*t+4)
+#    hin[1:(4*t+4)] <- c(h+max_penal, hmax-h, w_prime, wmax.-w_prime)
+#    for(tau in 1:t) hin[(4*t+4)+tau] <- (EV(h,w_prime,0)-EV(h,w_prime,tau)) ## ICC's for each length on deviation ##
+    EV <- EV(h,w_prime,0)
+    
+    hin <- rep(NA,t)
+    for(tau in 1:t) hin[tau] <- EV-EV(h,w_prime,tau) ## ICC's for each length on deviation ##
+#   hin[t+1] <- w - EV
+#    hin[t+2] <- -(w - EV)
+#    hin
     hin
   }
 
@@ -79,22 +86,26 @@ Bellman_P_alabama_multi <- function(w, Value_P, t=1, max_penal = 5*a, initial=NA
 #                                         heq = heq,
 #                                         control.outer = list(itmax=iter,trace=F)
 #  )
- 
+  
   effort_high <- nloptr::auglag( x0=initial, 
                   fn= objective,
+                  lower = c(rep(-max_penal,t+1),rep(0,t+1)),
+                  upper = c(rep(hmax,t+1),rep(wmax.,t+1)),
                   hin = hin,
                   heq = heq,
-                  nl.info = FALSE,
-                  control=list(xtol_rel = 1e-8, maxeval = iter)) 
+                  localsolver = ifelse(is.null(localsolver.),"MMA",localsolver.), 
+                  nl.info = T,
+                  control=list(xtol_rel = 1e-5, maxeval = iter)) 
   
-
-  try(if(min(head(hin(effort_high$par),4*(t+1))) < -0.0001) 
-    warning(paste("Utility bound is binding:",min(hin(effort_high$par)),",at w=",w)))
+  try(if(any(effort_high$par[1:(t+1)] <  rep(-max_penal,t+1)))
+    warning(paste("Curent utility bound is violated: at w=",w)))
+  
+  try(if(any(effort_high$par[(t+2):(2*(t+1))] > rep(wmax.,t+1)))
+    warning(paste("Future utility bound is violated: at w=",w)))
  
-  try(if(min(tail(hin(effort_high$par),t+1)) < -0.0001) 
-    warning(paste("ICC is binding:",min(hin(effort_high$par)),",at w=",w)))
-   
-  try(if(abs(heq(effort_high$par))>0.0001) 
+  try(if(any(hin(effort_high$par) < -0.000001)) 
+    warning(paste("ICC is violated:",min(hin(effort_high$par)),",at w=",w)))
+  try(if(abs(heq(effort_high$par))>0.000001) 
     warning(paste("Promise-keeping doesn't hold:",abs(heq(effort_high$par)), ",at  w=",w)))
   effort_high
 }
@@ -110,14 +121,20 @@ value_new_alabama_multi <- function(fun=function(x)(x^2),iter=10, space=W,t=1,ma
     
     for(i in 1:length(space)){
       if(i==1) {
-        optimal <- Bellman_P_alabama_multi(W[i],fun,t,iter=min(maxeval,10000),...)
+        optimal <- Bellman_P_alabama_multi(W[i],fun,t,iter=max(maxeval,10000),...)
       } else {optimal <- Bellman_P_alabama_multi(W[i],fun,t,iter=maxeval,...) }
       values[i] <- optimal$value
       Policy[i,] <- optimal$par
     }
-#    Values <- conspline(values,W,3)$muhat
-    fun <- Schumaker(W,values)$Spline
-    print(paste("Iteration ",k,"/", iter ," completed",sep=""))
+    
+    fun_new <- Schumaker(W,values, Extrapolation = "Linear")$Spline
+    
+    w. <- seq(min(W),max(W),length = length(W)*5)
+    change <- max(abs(fun(w.)-fun_new(w.))) ## Checking convergence
+    
+    fun <- fun_new
+    
+    print(paste("Iteration ",k,"/", iter ," completed. Change = ",change," detected.",sep=""))
   }
   
   parameters <- list("a"=a,"delta_A"=delta_A,"delta_P"=delta_P,"lambda"=lambda,"mu=mu")
